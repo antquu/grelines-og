@@ -6,7 +6,7 @@ import type { Stop } from '../types';
 
 // MapBox GL requires an access token (even for third-party tiles like MapTiler)
 // Get free token from: https://account.mapbox.com/auth/signup/
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiZGVtbyIsImEiOiJjbGV4YW1wbGUifQ.demo-token';
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '7TQErbyvEqFlis3QMmSl';
 
 interface MapProps {
   stops: Stop[];
@@ -52,11 +52,6 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
 
     const initMap = () => {
       try {
-        console.log('Starting map initialization...');
-        console.log('MapBox GL version:', mapboxgl.version || 'unknown');
-        console.log('MapBox GL available:', !!mapboxgl);
-        console.log('MapBox GL Map class:', typeof mapboxgl.Map);
-
         if (!mapContainer.current) {
           const err = 'Map container not available';
           console.error(err);
@@ -64,7 +59,6 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
           return;
         }
 
-        // Create map instance
         const styleUrl = DEFAULT_STYLE_URL || FALLBACK_STYLE_URL;
         const mapConfig: mapboxgl.MapboxOptions = {
           container: mapContainer.current,
@@ -75,18 +69,14 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
           bearing: 0,
         };
 
-        console.log('Creating map with config:', { center: GRENOBLE_CENTER, zoom: 12.1, style: MAPTILER_STYLE_URL.substring(0, 50) + '...' });
-        
         try {
           map.current = new mapboxgl.Map(mapConfig);
-          console.log('Map instance created successfully');
         } catch (mapErr) {
           console.error('Failed to create Map instance:', mapErr);
           throw mapErr;
         }
 
         map.current.on('load', () => {
-          console.log('Map loaded successfully');
           if (mounted) setIsLoading(false);
         });
 
@@ -95,12 +85,6 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
           const errorMsg = e?.message || e?.type || 'Unknown error';
           if (mounted) setError(`Map error: ${errorMsg}`);
         });
-
-        map.current.on('style.load', () => {
-          console.log('Map style loaded');
-        });
-
-        console.log('Map event listeners registered');
       } catch (err: any) {
         const errorMessage = err?.message || String(err);
         console.error('Error initializing map:', err);
@@ -137,22 +121,12 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
 
   // Update markers when stops or selected stop changes
   useEffect(() => {
-    if (!map.current) {
-      console.log('Map not ready yet');
-      return;
-    }
+    if (!map.current) return;
 
-    if (isLoading) {
-      console.log('Map still loading...');
-      return;
-    }
+    if (isLoading) return;
 
-    // Wait for map to be fully loaded
     if (!map.current.isStyleLoaded()) {
-      console.log('Map style not loaded yet, waiting...');
-      map.current.once('style.load', () => {
-        console.log('Map style loaded, now creating layers');
-      });
+      map.current.once('style.load', () => {});
       return;
     }
 
@@ -161,11 +135,8 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
       return;
     }
 
-    console.log(`Creating ${stops.length} stops visualization with native layers`);
-
     const createStopsLayers = () => {
       try {
-        // Create GeoJSON features from stops
         const normalizeId = (id: string): string => {
           if (!id) return id;
           if (id.startsWith('SEM:')) return id;
@@ -199,28 +170,17 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
           features,
         };
 
-        console.log(`✓ Created ${features.length} GeoJSON features`);
-
-        // Remove existing source and layers if they exist
         if (map.current.getSource('stops')) {
-          // Remove layers first
           if (map.current.getLayer('stops-circle')) map.current.removeLayer('stops-circle');
           if (map.current.getLayer('stops-label')) map.current.removeLayer('stops-label');
-          
-          // Then remove source
           map.current.removeSource('stops');
         }
 
-        // Add source
         map.current.addSource('stops', {
           type: 'geojson',
           data: geojson as any,
         });
 
-        console.log('✓ GeoJSON source added with', features.length, 'features');
-        console.log('✓ map.current exists?', !!map.current);
-
-        // Add all stops layer
         map.current.addLayer({
           id: 'stops-circle',
           type: 'circle',
@@ -257,20 +217,11 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
           },
         });
 
-        console.log('✓ stops-circle layer added successfully');
-
-        // Skip labels for now - will add them later after fixing events
-        // TODO: Add symbol layer with text labels when font issues resolved
-
-        // Add click handler
         const handleClickStop = (e: any) => {
-          console.log('🖱️ Click event fired on stops layer:', e.features?.length);
           if (e.features && e.features.length > 0 && e.features[0]) {
             const stopId = e.features[0].properties.id;
-            console.log('Found feature with ID:', stopId);
             const stop = stops.find((s) => s.id === stopId);
             if (stop) {
-              console.log(`✓ Clicked stop: ${stop.name}`);
               onStopClickRef.current(stop);
             } else {
               console.warn('Stop not found for ID:', stopId);
@@ -278,7 +229,6 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
           }
         };
 
-        // Change cursor on hover
         const handleMouseEnter = () => {
           map.current.getCanvas().style.cursor = 'pointer';
         };
@@ -287,14 +237,9 @@ const MapComponentBase = ({ stops, selectedStop, onStopClick }: MapProps, ref: F
           map.current.getCanvas().style.cursor = '';
         };
 
-        console.log('Attaching click listener to stops-circle layer...');
         map.current.on('click', 'stops-circle', handleClickStop);
         map.current.on('mouseenter', 'stops-circle', handleMouseEnter);
         map.current.on('mouseleave', 'stops-circle', handleMouseLeave);
-        console.log('✓ Component: All event listeners attached');
-
-        console.log(`✓ Event listeners attached to 'stops-circle' layer`);
-        console.log(`✓ All ${stops.length} stops rendered as native layers`);
       } catch (err) {
         console.error('Error creating stops layers:', err);
       }

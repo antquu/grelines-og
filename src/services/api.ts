@@ -98,7 +98,6 @@ export async function getTrafficLines(): Promise<Map<string, TrafficDetail[]>> {
       }
     }
 
-    console.log(`⚠️ Trafic : lignes concernées = ${Array.from(trafficMap.keys()).join(', ')}`);
     return trafficMap;
   } catch (err) {
     console.warn('⚠️ Impossibles de charger le trafic:', err);
@@ -115,7 +114,6 @@ async function loadRoutes(): Promise<Line[]> {
   if (cached) return cached;
 
   try {
-    console.log(`📡 Chargement des lignes...`);
     const res = await axios.get(`${TAG_API_BASE}/index/routes`, { headers: TAG_HEADERS });
     const routes = res.data || [];
 
@@ -138,7 +136,6 @@ async function loadRoutes(): Promise<Line[]> {
       });
 
     setCache(cacheKey, lines);
-    console.log(`✓ ${lines.length} lignes chargées`);
     return lines;
   } catch (err) {
     console.error('❌ Erreur loadRoutes:', err);
@@ -157,13 +154,9 @@ let stopsWithClusterCache = new Map<string, StopWithCluster>();
 export async function getAllStops(): Promise<Stop[]> {
   const cacheKey = 'all_stops';
   const cached = getFromCache<Stop[]>(cacheKey);
-  if (cached) {
-    console.log(`💾 ${cached.length} arrêts depuis cache`);
-    return cached;
-  }
+  if (cached) return cached;
 
   try {
-    console.log(`📡 Chargement arrêts (via clusters des lignes)...`);
     const lines = await loadRoutes();
     const stopsMap = new Map<string, Stop>();
     stopsWithClusterCache.clear();
@@ -194,9 +187,6 @@ export async function getAllStops(): Promise<Stop[]> {
 
           stopsMap.set(stopId, stop);
           stopsWithClusterCache.set(stopId, { stop, clusterId });
-
-          // Debug utile au début
-          // console.log(`  ${line.shortName.padEnd(5)} → ${c.name.padEnd(30)} ${clusterId}`);
         }
       } catch (err) {
         console.warn(`  ⚠️ Ligne ${line.id} clusters échouée`);
@@ -205,7 +195,6 @@ export async function getAllStops(): Promise<Stop[]> {
 
     const allStops = Array.from(stopsMap.values());
     setCache(cacheKey, allStops);
-    console.log(`✓ ${allStops.length} arrêts uniques chargés`);
 
     return allStops;
   } catch (err) {
@@ -223,12 +212,7 @@ export async function getDepartures(stopId: string, skipCache: boolean = false):
   
   if (!skipCache) {
     const cached = getFromCache<Departure[]>(cacheKey);
-    if (cached) {
-      console.log(`💾 Départs cache pour ${stopId}`);
-      return cached;
-    }
-  } else {
-    console.log(`🔄 Bypassing cache pour ${stopId}`);
+    if (cached) return cached;
   }
 
   try {
@@ -245,15 +229,11 @@ export async function getDepartures(stopId: string, skipCache: boolean = false):
       }
     }
 
-    console.log(`📡 Départs → cluster : ${clusterId}`);
-
     let url = `${TAG_API_BASE}/index/clusters/${clusterId}/stoptimes`;
-    console.log(`📡 getDepartures URL: ${url}`);
     const res = await axios.get(url, { headers: TAG_HEADERS });
 
     const data = res.data;
-    console.log(`Raw API response for ${clusterId}:`, JSON.stringify(data, null, 2));
-    
+
     if (!Array.isArray(data)) {
       console.warn(`Réponse stoptimes non-array pour ${clusterId}`, data);
       return [];
@@ -280,8 +260,6 @@ export async function getDepartures(stopId: string, skipCache: boolean = false):
       // Destination: preference headsign -> lastStopName -> name -> unknown
       const destination = pattern.headsign || pattern.lastStopName || pattern.name || 'Direction inconnue';
 
-      console.log(`Pattern ${lineId} -> ${destination}, ${times.length} times (pattern.id=${pattern.id})`);
-
       for (const t of times) {
         const serviceDay = t.serviceDay ?? 0;
         const scheduled = t.scheduledDeparture ?? 0;
@@ -290,10 +268,7 @@ export async function getDepartures(stopId: string, skipCache: boolean = false):
         const depUnix = serviceDay + realtime;
         const minutes = Math.round((depUnix - now) / 60);
 
-        console.log(`  Time: serviceDay=${serviceDay}, scheduled=${scheduled}, realtime=${realtime}, depUnix=${depUnix}, now=${now}, minutes=${minutes}`);
-
         if (depUnix < now - 300) {
-          console.log(`  Skipping past departure: ${minutes} min ago`);
           continue; // déjà parti depuis >5min
         }
 
@@ -313,7 +288,6 @@ export async function getDepartures(stopId: string, skipCache: boolean = false):
     departures.sort((a, b) => a.departureTime - b.departureTime);
 
     setCache(cacheKey, departures);
-    console.log(`→ ${departures.length} départs trouvés pour ${stopId} (${clusterId})`);
 
     return departures;
   } catch (err: any) {
@@ -330,9 +304,7 @@ async function getStopRoutes(stopId: string): Promise<Line[]> {
     // Formater le stopId comme SEM:GEN(stopId)
     const cleanStopId = stopId.startsWith('SEM:') ? stopId.substring(4) : stopId;
     const fullStopId = `SEM:GEN${cleanStopId}`;
-    
-    console.log(`📡 Récupération lignes pour: ${fullStopId}`);
-    
+
     const response = await axios.get(
       `${TAG_API_BASE}/index/clusters/${fullStopId}/routes`,
       { headers: TAG_HEADERS }
@@ -355,7 +327,6 @@ async function getStopRoutes(stopId: string): Promise<Line[]> {
       } satisfies Line;
     });
 
-    console.log(`✓ ${lines.length} lignes pour ${stopId}`);
     return lines;
   } catch (error) {
     console.warn(`⚠️ Erreur chargement lignes pour ${stopId}:`, error);
@@ -374,11 +345,9 @@ export async function getStopDetail(stopId: string): Promise<StopDetail | null> 
     if (!stop) return null;
 
     const lines = await getStopRoutes(stop.id);
-    console.log(`✓ Chargement ${lines.length} lignes pour arrêt ${stop.name}:`, lines.map(l => l.id).join(', '));
 
     // Requête unique au cluster pour récupérer TOUS les bus (sans filtrer par ligne)
     const departures = await getDepartures(stop.id);
-    console.log(`✓ ${departures.length} départs chargés pour ${stop.name}`);
 
     return {
       ...stop,
@@ -398,8 +367,6 @@ export async function getStopDetail(stopId: string): Promise<StopDetail | null> 
  */
 export async function refreshStopDepartures(stopDetail: StopDetail): Promise<StopDetail> {
   try {
-    console.log(`🔄 Refresh départs pour ${stopDetail.name}`);
-
     // Bypass le cache pour avoir les données fraiches
     const departures = await getDepartures(stopDetail.id, true);
 

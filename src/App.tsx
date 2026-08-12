@@ -5,6 +5,16 @@ import { getAllStops, getStopDetail, getTrafficLines } from './services/api';
 import type { Stop, StopDetail, TrafficDetail } from './types';
 import type { MapRef } from './components/Map';
 
+console.log(`_
+  __ _ _ __ | |_ __ _ _ _
+ / _\` | '_ \\| __/ _\` | | | |
+| (_| | | | | || (_| | |_| |
+ \\__,_|_| |_|\\__\\__, |\\__,_|
+                   |_|
+                   
+       made by antqu • github.com/antquu`
+)
+
 function App() {
   const [stops, setStops] = useState<Stop[]>([]);
   const [searchQuery, setSearchQuery] = useState('');

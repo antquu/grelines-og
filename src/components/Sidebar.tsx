@@ -242,17 +242,7 @@ export const Sidebar = ({ stop, isOpen, onClose, initialSelectedLines }: Sidebar
       return;
     }
 
-    console.log(`Sidebar: Received ${currentStopDetail.departures.length} departures for ${currentStopDetail.name}`);
-
-    // Filtrer les départs futurs
     const futureDepartures = currentStopDetail.departures.filter(dep => getMinutesUntilDeparture(dep) >= 0);
-
-    console.log(`Sidebar: Filtered to ${futureDepartures.length} future departures`);
-    futureDepartures.forEach((dep, i) => {
-      const minutes = getMinutesUntilDeparture(dep);
-      console.log(`  ${i+1}. ${dep.lineId} to ${dep.destination}: ${minutes} min (${dep.departureTime})`);
-    });
-
     setDepartures(futureDepartures);
   }, [currentStopDetail]);
 
